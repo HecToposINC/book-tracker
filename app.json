@@ -33,6 +33,14 @@
           "imageWidth": 76
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permite el acceso a la cámara para escanear el código de barras (ISBN) de tus libros.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
       "expo-sqlite"
     ],
     "experiments": {
