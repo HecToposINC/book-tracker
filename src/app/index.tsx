@@ -1,39 +1,25 @@
-import * as Device from 'expo-device';
 import { useState } from 'react';
 import {
   Button,
   Modal,
   Platform,
   StyleSheet,
-  TextInput,
-} from 'react-native';import { SafeAreaView } from 'react-native-safe-area-context';
-import { Picker } from '@react-native-picker/picker'
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
+import BookForm from '@/components/books/BookForm';
 import { ThemedText } from '@/components/themed-text';
 
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-enum Status {
-  owned = 'owned',
-  reading = 'reading',
-  read = 'read',
-  wishlist = 'wishlist',
-}
-  type Book = {
-    id: string;
-    title: string;
-    isbn: string;
-    status: Status
-  }
+import BookList from '@/components/books/BookList';
+import { Status, type Book, type BookDraft } from '@/features/books/types';
+
 
 export default function HomeScreen() {
 
   const [isFormVisible, setIsFormVisible] = useState(false);
-const [title, setTitle] = useState('');
-const [isbn, setIsbn] = useState('');
-const[status, setStatus] = useState<Status>(Status.owned);
 const [books, setBooks]= useState<Book[]>([
   {
     id: '1',
@@ -54,6 +40,16 @@ const [books, setBooks]= useState<Book[]>([
 
   }
 ]);
+  function handleSaveBook(draft: BookDraft) {
+    const newBook: Book = {
+      id: Date.now().toString(),
+      ...draft,
+    };
+
+    setBooks((currentBooks) => [...currentBooks, newBook]);
+    setIsFormVisible(false);
+  }
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
@@ -63,15 +59,7 @@ const [books, setBooks]= useState<Book[]>([
             My libray
           </ThemedText>
         </ThemedView>
-        {
-          books.map((book)=> (
-            <HintRow
-            key={book.id}
-            title={book.title.trim()}
-            hint={<ThemedText type="code">{book.status+' '+book.isbn}</ThemedText>}
-            />
-          ))
-        }
+          <BookList books={books} />
                   <Button
   onPress={()=> setIsFormVisible(true)}
   title="Add book"
@@ -84,65 +72,10 @@ const [books, setBooks]= useState<Book[]>([
   presentationStyle="pageSheet"
   onRequestClose={() => setIsFormVisible(false)}
 >
-  <SafeAreaView style={styles.formContainer}>
-    <ThemedText type="title">Añadir libro</ThemedText>
-
-    <TextInput
-      style={styles.input}
-      placeholder="Título"
-      value={title}
-      onChangeText={setTitle}
-    />
-
-    <TextInput
-      style={styles.input}
-      placeholder="ISBN"
-      value={isbn}
-      onChangeText={setIsbn}
-      keyboardType="numeric"
-    />
-    <Picker
-    selectedValue={status}
- onValueChange={(itemValue) =>
-    setStatus(itemValue)}>
-      <Picker.Item label="Comprado" value={Status.owned} />
-<Picker.Item label="Leyendo" value={Status.reading} />
-<Picker.Item label="Leído" value={Status.read} />
-<Picker.Item label="Lista de deseos" value={Status.wishlist} />
-      </Picker>  
-
-    
-
-    <Button
-      title="Cancelar"
-      onPress={() =>{ setIsFormVisible(false);
-        setTitle('');
-        setIsbn('');
-        setStatus(Status.owned);
-      }}
-    />
-
-    <Button
-      title="Guardar"
-      onPress={() => {
-        if(title.trim().length > 0 && isbn.trim().length > 0){
-
-        
-        const newBook: Book = {
-  id: Date.now().toString(),
-  title: title.trim(),
-  isbn: isbn.trim(),
-      status
-
-};
-setBooks([...books, newBook]);
-        setIsFormVisible(false);
-        setTitle('');
-        setIsbn('');
-        setStatus(Status.owned);
-      }}}
-    />
-  </SafeAreaView>
+  <BookForm
+    onSave={handleSaveBook}
+    onCancel={() => setIsFormVisible(false)}
+  />
 </Modal>
         {Platform.OS === 'web' && <WebBadge />}
       </SafeAreaView>
@@ -184,16 +117,4 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.four,
     borderRadius: Spacing.four,
   },
-  formContainer: {
-  flex: 1,
-  padding: Spacing.four,
-  gap: Spacing.three,
-},
-input: {
-  borderWidth: 1,
-  borderColor: '#999',
-  borderRadius: 8,
-  padding: 12,
-  fontSize: 16,
-},
 });
