@@ -14,13 +14,14 @@ import { RatingStars } from '@/components/library/rating-stars';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { defaultFormat, isSeries } from '@/features/library/editions';
+import { defaultFormat, editionsOfWork, isSeries } from '@/features/library/editions';
 import { useLibrary } from '@/features/library/library-store';
 import { useEditionSuggestions } from '@/features/library/use-edition-suggestions';
 import {
   KIND_LABELS,
   STATUS_LABELS,
   STATUS_ORDER,
+  type Edition,
   type LibraryItem,
   type MediaKind,
 } from '@/features/library/types';
@@ -33,7 +34,8 @@ const KIND_OPTIONS = (Object.keys(KIND_LABELS) as MediaKind[]).map((kind) => ({
 }));
 
 export default function ItemScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `edition`: se abrió desde la tarjeta de una edición concreta en la estantería.
+  const { id, edition } = useLocalSearchParams<{ id: string; edition?: string }>();
   const theme = useTheme();
   const { getItem } = useLibrary();
   const item = getItem(id);
@@ -53,12 +55,12 @@ export default function ItemScreen() {
       contentInsetAdjustmentBehavior="automatic"
       keyboardShouldPersistTaps="handled">
       {/* key: reinicia los campos editables si cambia la ficha mostrada */}
-      <ItemDetails key={item.id} item={item} />
+      <ItemDetails key={item.id} item={item} focusEditionId={edition} />
     </ScrollView>
   );
 }
 
-function ItemDetails({ item }: { item: LibraryItem }) {
+function ItemDetails({ item, focusEditionId }: { item: LibraryItem; focusEditionId?: string }) {
   const theme = useTheme();
   const library = useLibrary();
   const { updateItem, removeItem } = library;
@@ -67,6 +69,25 @@ function ItemDetails({ item }: { item: LibraryItem }) {
   const suggestions = useEditionSuggestions(item);
 
   const update = (patch: Partial<LibraryItem>) => updateItem(item.id, patch);
+  const focused = item.editions.find((edition) => edition.id === focusEditionId);
+  const otherEditions = item.editions.filter((edition) => edition !== focused);
+
+  const renderEdition = (edition: Edition) => (
+    <EditionCard
+      key={edition.id}
+      edition={edition}
+      onUpdate={(draft) => library.updateEdition(item.id, edition.id, draft)}
+      onRemove={() => library.removeEdition(item.id, edition.id)}
+      onToggleVolume={(volume, field) => library.toggleVolume(item.id, edition.id, volume, field)}
+      onSetAll={(field, all) => library.setAllVolumes(item.id, edition.id, field, all)}
+    />
+  );
+  const editionsHelp = (
+    <ThemedText type="small" themeColor="textSecondary">
+      Elige qué marcar (lo tengo, leído o lo quiero) y pulsa los tomos. Mantén pulsado un tomo para
+      marcarlo como leído directamente.
+    </ThemedText>
+  );
   const inputStyle = [styles.input, { backgroundColor: theme.backgroundElement, color: theme.text }];
 
   async function handleDelete() {
@@ -107,29 +128,24 @@ function ItemDetails({ item }: { item: LibraryItem }) {
         <RatingStars value={item.rating} onChange={(rating) => update({ rating })} />
       </Section>
 
-      {item.editions.length > 0 && (
-        <Section title="Mis ediciones">
-          <ThemedText type="small" themeColor="textSecondary">
-            Elige qué marcar (lo tengo, leído o lo quiero) y pulsa los tomos. Mantén pulsado un tomo
-            para marcarlo como leído directamente.
-          </ThemedText>
-          {item.editions.map((edition) => (
-            <EditionCard
-              key={edition.id}
-              edition={edition}
-              onUpdate={(draft) => library.updateEdition(item.id, edition.id, draft)}
-              onRemove={() => library.removeEdition(item.id, edition.id)}
-              onToggleVolume={(volume, field) => library.toggleVolume(item.id, edition.id, volume, field)}
-              onSetAll={(field, all) => library.setAllVolumes(item.id, edition.id, field, all)}
-            />
-          ))}
+      {focused && (
+        <Section title="Esta edición">
+          {editionsHelp}
+          {renderEdition(focused)}
+        </Section>
+      )}
+
+      {otherEditions.length > 0 && (
+        <Section title={focused ? 'Otras ediciones que tienes' : 'Mis ediciones'}>
+          {!focused && editionsHelp}
+          {otherEditions.map(renderEdition)}
         </Section>
       )}
 
       <Section title="Ediciones encontradas">
         <EditionSuggestions
           suggestions={suggestions}
-          editions={item.editions}
+          editions={editionsOfWork(library.items, item)}
           onAdd={(draft) => library.addEdition(item.id, draft)}
         />
         {addingEdition ? (

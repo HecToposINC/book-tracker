@@ -79,7 +79,7 @@ export function EditionSuggestions({ suggestions, editions, onAdd }: EditionSugg
                     <ThemedText
                       type="smallBold"
                       style={{ color: added ? theme.textSecondary : theme.onTint }}>
-                      {added ? 'Añadida' : 'La tengo'}
+                      {added ? 'Añadida' : 'Añadir'}
                     </ThemedText>
                   </Pressable>
                 </View>

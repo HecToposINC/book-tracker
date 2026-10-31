@@ -7,27 +7,25 @@ import { EntryRow } from '@/components/library/entry-row';
 import { ScreenHeader } from '@/components/library/screen-header';
 import { TabScreen } from '@/components/library/tab-screen';
 import { BottomTabInset, Spacing } from '@/constants/theme';
-import { countVolumes, editionLabel, formatVolumeRanges } from '@/features/library/editions';
+import {
+  editionLabel,
+  formatVolumeRanges,
+  wishlistEntries,
+  type ShelfEntry,
+} from '@/features/library/editions';
 import { useLibrary } from '@/features/library/library-store';
-import type { LibraryItem } from '@/features/library/types';
 
-/** "Kamite · Español: tomo 5 · Yen On · Inglés: tomos 6-8" */
-function wantedVolumesLabel(item: LibraryItem) {
-  return item.editions
-    .filter((edition) => edition.wishlistVolumes.length > 0)
-    .map(
-      (edition) =>
-        `${editionLabel(edition)}: ${edition.wishlistVolumes.length === 1 ? 'tomo' : 'tomos'} ${formatVolumeRanges(edition.wishlistVolumes)}`
-    )
-    .join(' · ');
+/** "Panini · Español · Manga: tomos 5-7", o nada si quieres la obra entera. */
+function wantedLabel({ edition }: ShelfEntry) {
+  if (!edition) return undefined;
+  const volumes = edition.wishlistVolumes;
+  return `${editionLabel(edition)} · ${edition.format}: ${volumes.length === 1 ? 'tomo' : 'tomos'} ${formatVolumeRanges(volumes)}`;
 }
 
 export default function WishlistScreen() {
   const { items, acquireWishlist } = useLibrary();
-  // Obras que quieres enteras y obras de las que te falta algún tomo.
-  const wishlist = items.filter(
-    (item) => (item.wishlist && !item.owned) || countVolumes(item, 'wishlistVolumes') > 0
-  );
+  // Una fila por edición con tomos deseados, más las obras que quieres enteras.
+  const wishlist = wishlistEntries(items);
 
   return (
     <TabScreen>
@@ -35,24 +33,29 @@ export default function WishlistScreen() {
         title="Deseos"
         subtitle={
           wishlist.length > 0
-            ? `${wishlist.length} ${wishlist.length === 1 ? 'título pendiente' : 'títulos pendientes'} de conseguir`
+            ? `${wishlist.length} ${wishlist.length === 1 ? 'pendiente' : 'pendientes'} de conseguir`
             : undefined
         }
       />
       <FlatList
         data={wishlist}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(entry) => entry.key}
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
+        renderItem={({ item: entry }) => (
           <EntryRow
-            entry={item}
-            onPress={() => router.push({ pathname: '/item/[id]', params: { id: item.id } })}
-            badge={wantedVolumesLabel(item) || undefined}
+            entry={entry.item}
+            onPress={() =>
+              router.push({
+                pathname: '/item/[id]',
+                params: entry.edition ? { id: entry.item.id, edition: entry.edition.id } : { id: entry.item.id },
+              })
+            }
+            badge={wantedLabel(entry)}
             trailing={
               <ActionButton
                 title="Lo tengo"
                 icon={{ ios: 'checkmark', android: 'check' }}
-                onPress={() => acquireWishlist(item.id)}
+                onPress={() => acquireWishlist(entry.item.id, entry.edition?.id)}
               />
             }
           />

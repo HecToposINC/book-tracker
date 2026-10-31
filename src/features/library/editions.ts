@@ -87,12 +87,63 @@ export function countVolumes(item: LibraryItem, field: VolumeField) {
 }
 
 /** Serie de varios tomos (manga, sagas…): la posesión y los deseos se llevan por tomo. */
-export function isSeries(item: LibraryItem) {
+export function isSeries(entry: CatalogEntry & { editions?: Edition[] }) {
   return (
-    item.kind === 'manga' ||
-    (item.totalVolumes ?? 0) > 1 ||
-    item.editions.some((edition) => (edition.totalVolumes ?? 0) > 1)
+    entry.kind === 'manga' ||
+    (entry.totalVolumes ?? 0) > 1 ||
+    (entry.editions ?? []).some((edition) => (edition.totalVolumes ?? 0) > 1)
   );
+}
+
+/** De esta edición solo quieres tomos: va a Deseos, no a la estantería. */
+export function isEditionOnlyWanted(edition: Edition) {
+  return (
+    edition.ownedVolumes.length === 0 &&
+    edition.readVolumes.length === 0 &&
+    edition.wishlistVolumes.length > 0
+  );
+}
+
+/** Lo que se ve en la estantería: cada edición por separado, o la obra si no tiene ediciones. */
+export type ShelfEntry = { key: string; item: LibraryItem; edition?: Edition };
+
+export function shelfEntries(items: LibraryItem[]): ShelfEntry[] {
+  return items.flatMap<ShelfEntry>((item) => {
+    if (item.editions.length === 0) return isOnlyWanted(item) ? [] : [{ key: item.id, item }];
+    return item.editions
+      .filter((edition) => !isEditionOnlyWanted(edition))
+      .map((edition) => ({ key: `${item.id}/${edition.id}`, item, edition }));
+  });
+}
+
+/** Lo que se ve en Deseos: obras que quieres enteras y ediciones con tomos deseados. */
+export function wishlistEntries(items: LibraryItem[]): ShelfEntry[] {
+  return items.flatMap<ShelfEntry>((item) => {
+    const whole: ShelfEntry[] = item.wishlist && !item.owned ? [{ key: item.id, item }] : [];
+    const editions = item.editions
+      .filter((edition) => edition.wishlistVolumes.length > 0)
+      .map((edition) => ({ key: `${item.id}/${edition.id}`, item, edition }));
+    return [...whole, ...editions];
+  });
+}
+
+/** Misma obra en otra ficha (p. ej. el manga y la novela ligera de Konosuba comparten título). */
+function isSameWork(a: CatalogEntry, b: CatalogEntry) {
+  const titles = (entry: CatalogEntry) =>
+    [entry.title, entry.originalTitle].filter((t): t is string => Boolean(t)).map((t) => t.toLowerCase());
+  const other = titles(b);
+  return a.id === b.id || titles(a).some((title) => other.includes(title));
+}
+
+/** Ediciones que ya tienes de esta obra, estén en esta ficha o en la de otro formato. */
+export function editionsOfWork(items: LibraryItem[], entry: CatalogEntry) {
+  return items.filter((item) => isSameWork(item, entry)).flatMap((item) => item.editions);
+}
+
+/** "Panini · ES" para mostrar la edición en espacios pequeños. */
+export function editionShortLabel(edition: Edition) {
+  const language = edition.language === 'other' ? '' : edition.language.toUpperCase();
+  return [edition.publisher || 'Sin editorial', language].filter(Boolean).join(' · ');
 }
 
 /** Solo está en deseos: no tienes ni has leído nada, pero quieres la obra o algún tomo. */

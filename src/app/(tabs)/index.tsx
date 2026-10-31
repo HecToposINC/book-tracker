@@ -10,7 +10,7 @@ import { LibraryCard } from '@/components/library/library-card';
 import { ScreenHeader } from '@/components/library/screen-header';
 import { TabScreen } from '@/components/library/tab-screen';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { isOnlyWanted } from '@/features/library/editions';
+import { shelfEntries } from '@/features/library/editions';
 import { useLibrary } from '@/features/library/library-store';
 import { STATUS_LABELS, STATUS_ORDER, type MediaKind, type ReadingStatus } from '@/features/library/types';
 import { useTheme } from '@/hooks/use-theme';
@@ -44,19 +44,20 @@ export default function LibraryScreen() {
   const columns = Math.max(3, Math.floor((contentWidth + Spacing.three) / (MIN_CARD_WIDTH + Spacing.three)));
   const cardWidth = (contentWidth - Spacing.three * (columns - 1)) / columns;
 
-  // Lo que solo está en deseos vive en su propia pestaña.
-  const library = items.filter((item) => !isOnlyWanted(item));
+  // Una tarjeta por edición; lo que solo está en deseos vive en su propia pestaña.
+  const library = shelfEntries(items);
   const normalizedQuery = query.trim().toLowerCase();
-  const visible = library.filter(
-    (item) =>
+  const visible = library.filter(({ item, edition }) => {
+    const owned = edition ? edition.ownedVolumes.length > 0 : item.owned;
+    const searchable = [item.title, ...item.authors, edition?.publisher ?? ''];
+    return (
       (kind === 'all' || item.kind === kind) &&
-      (status === 'all' || (status === 'owned' ? item.owned : item.status === status)) &&
-      (!normalizedQuery ||
-        item.title.toLowerCase().includes(normalizedQuery) ||
-        item.authors.some((author) => author.toLowerCase().includes(normalizedQuery)))
-  );
+      (status === 'all' || (status === 'owned' ? owned : item.status === status)) &&
+      (!normalizedQuery || searchable.some((text) => text.toLowerCase().includes(normalizedQuery)))
+    );
+  });
 
-  const subtitle = `${library.length} ${library.length === 1 ? 'título' : 'títulos'}`;
+  const subtitle = `${library.length} en tu estantería`;
 
   return (
     <TabScreen>
@@ -86,7 +87,7 @@ export default function LibraryScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Filtrar por título o autor"
+            placeholder="Filtrar por título, autor o editorial"
             placeholderTextColor={theme.textSecondary}
             clearButtonMode="while-editing"
             style={[styles.input, { backgroundColor: theme.backgroundElement, color: theme.text }]}
@@ -100,8 +101,8 @@ export default function LibraryScreen() {
         key={columns}
         data={visible}
         numColumns={columns}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <LibraryCard item={item} width={cardWidth} />}
+        keyExtractor={(entry) => entry.key}
+        renderItem={({ item: entry }) => <LibraryCard entry={entry} width={cardWidth} />}
         columnWrapperStyle={styles.columns}
         contentContainerStyle={styles.list}
         keyboardDismissMode="on-drag"

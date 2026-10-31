@@ -171,17 +171,21 @@ const actions = {
         : volumes;
     });
   },
-  /** Ya tienes lo que querías: los tomos deseados pasan a la colección. */
-  acquireWishlist(id: string) {
+  /** Ya tienes lo que querías: los tomos deseados (de una edición o de todas) pasan a la colección. */
+  acquireWishlist(id: string, editionId?: string) {
     patchItem(id, (item) => ({
       ...item,
       owned: true,
       wishlist: false,
-      editions: item.editions.map((edition) => ({
-        ...edition,
-        ownedVolumes: [...edition.ownedVolumes, ...edition.wishlistVolumes].sort((a, b) => a - b),
-        wishlistVolumes: [],
-      })),
+      editions: item.editions.map((edition) =>
+        !editionId || edition.id === editionId
+          ? {
+              ...edition,
+              ownedVolumes: [...edition.ownedVolumes, ...edition.wishlistVolumes].sort((a, b) => a - b),
+              wishlistVolumes: [],
+            }
+          : edition
+      ),
     }));
   },
   removeItem(id: string) {
