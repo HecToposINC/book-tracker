@@ -8,7 +8,9 @@
     "scheme": "booktracker",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.harevalo.booktracker",
+      "appleTeamId": "46VGYXUUX9"
     },
     "android": {
       "adaptiveIcon": {
