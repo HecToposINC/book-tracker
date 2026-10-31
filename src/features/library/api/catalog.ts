@@ -64,7 +64,7 @@ export async function fetchEntry(id: string, signal?: AbortSignal): Promise<Cata
   if (!entry) return getCachedEntry(id) ?? null;
 
   // La búsqueda trae campos (ISBN, editorial, páginas) que el detalle no tiene: se combinan.
-  const merged = { ...getCachedEntry(id), ...stripUndefined(entry) };
+  const merged: CatalogEntry = { ...entry, ...getCachedEntry(id), ...stripUndefined(entry) };
   rememberEntries([merged]);
   return merged;
 }
