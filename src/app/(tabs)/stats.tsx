@@ -6,7 +6,7 @@ import { TabScreen } from '@/components/library/tab-screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
-import { useLibrary } from '@/features/library/library-context';
+import { useLibrary } from '@/features/library/library-store';
 import { computeStats } from '@/features/library/stats';
 
 const numberFormat = new Intl.NumberFormat('es');

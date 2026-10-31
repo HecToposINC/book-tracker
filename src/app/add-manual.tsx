@@ -7,7 +7,7 @@ import { ChipGroup } from '@/components/library/chip-group';
 import { ThemedText } from '@/components/themed-text';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { normalizeIsbn } from '@/features/library/isbn';
-import { useLibrary } from '@/features/library/library-context';
+import { useLibrary } from '@/features/library/library-store';
 import {
   KIND_LABELS,
   STATUS_LABELS,

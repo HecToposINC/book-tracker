@@ -9,7 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { fetchEntry, getCachedEntry } from '@/features/library/api/catalog';
 import { isAbortError } from '@/features/library/api/http';
-import { useLibrary } from '@/features/library/library-context';
+import { useLibrary } from '@/features/library/library-store';
 import type { CatalogEntry, LibraryItem } from '@/features/library/types';
 import { useTheme } from '@/hooks/use-theme';
 

@@ -10,7 +10,7 @@ import { LibraryCard } from '@/components/library/library-card';
 import { ScreenHeader } from '@/components/library/screen-header';
 import { TabScreen } from '@/components/library/tab-screen';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useLibrary } from '@/features/library/library-context';
+import { useLibrary } from '@/features/library/library-store';
 import { STATUS_LABELS, STATUS_ORDER, type MediaKind, type ReadingStatus } from '@/features/library/types';
 import { useTheme } from '@/hooks/use-theme';
 

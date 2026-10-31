@@ -12,7 +12,7 @@ import { VolumeGrid } from '@/components/library/volume-grid';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { useLibrary } from '@/features/library/library-context';
+import { useLibrary } from '@/features/library/library-store';
 import {
   KIND_LABELS,
   STATUS_LABELS,

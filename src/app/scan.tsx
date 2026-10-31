@@ -10,7 +10,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { findByIsbn } from '@/features/library/api/catalog';
 import { normalizeIsbn } from '@/features/library/isbn';
-import { useLibrary } from '@/features/library/library-context';
+import { useLibrary } from '@/features/library/library-store';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ScanScreen() {

@@ -7,7 +7,7 @@ import { EntryRow } from '@/components/library/entry-row';
 import { ScreenHeader } from '@/components/library/screen-header';
 import { TabScreen } from '@/components/library/tab-screen';
 import { BottomTabInset, Spacing } from '@/constants/theme';
-import { useLibrary } from '@/features/library/library-context';
+import { useLibrary } from '@/features/library/library-store';
 
 export default function WishlistScreen() {
   const { items, updateItem } = useLibrary();
