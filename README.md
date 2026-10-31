@@ -1,56 +1,47 @@
-# Welcome to your Expo app 👋
+# Book Tracker
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Gestor de colección de **libros y mangas** al estilo Whakoom, hecho con Expo (SDK 57) y Expo Router.
 
-## Get started
+## Funcionalidades
 
-1. Install dependencies
+- **Biblioteca** en cuadrícula con filtros por tipo (libro/manga), estado y texto.
+- **Búsqueda** combinada: mangas en AniList y libros en Open Library. Si pegas un ISBN, busca esa edición.
+- **Escáner de ISBN** con la cámara (EAN-13/EAN-8/UPC-A) y entrada manual del código.
+- **Seguimiento de tomos** en series de manga: pulsa un tomo para marcar que lo tienes y mantén pulsado para marcarlo como leído.
+- Estado de lectura (pendiente, leyendo, leído, abandonado), valoración de 1 a 5 estrellas y notas.
+- **Lista de deseos** con un contador en la pestaña.
+- **Estadísticas**: títulos, tomos, páginas leídas, distribución por estado y autores más presentes.
+- Alta manual de lo que no esté en las APIs.
+- Datos guardados en el dispositivo (`expo-sqlite/kv-store`; `localStorage` en web).
 
-   ```bash
-   npm install
-   ```
+## APIs (gratuitas, sin API key)
 
-2. Start the app
+| API | Uso |
+|-----|-----|
+| [Open Library](https://openlibrary.org/developers/api) | Búsqueda de libros, detalle de obra, búsqueda por ISBN y portadas |
+| [AniList GraphQL](https://docs.anilist.co) | Búsqueda de manga, número de tomos, estado de publicación y sinopsis |
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Desarrollo
 
 ```bash
-npm run reset-project
+npm install
+npx expo start        # servidor de desarrollo
+npx expo lint         # lint
+npx tsc --noEmit      # comprobación de tipos
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+La cámara (`expo-camera`) y SQLite (`expo-sqlite`) tienen código nativo: en iOS y Android usa una development build (`npx expo run:ios|android` o `eas build --profile development`).
 
-### Other setup steps
+## Estructura
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```
+src/
+  app/                    rutas (Expo Router)
+    (tabs)/               Biblioteca · Buscar · Deseos · Estadísticas
+    item/[id].tsx         detalle de un elemento de la biblioteca
+    result.tsx            detalle de un resultado de búsqueda
+    scan.tsx              escáner de ISBN
+    add-manual.tsx        alta manual
+  features/library/       tipos, store, persistencia, estadísticas y clientes de API
+  components/library/     componentes de UI
+```
