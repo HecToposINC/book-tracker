@@ -8,12 +8,13 @@ type VolumeGridProps = {
   total: number;
   owned: number[];
   read: number[];
-  onToggleOwned: (volume: number) => void;
-  onToggleRead: (volume: number) => void;
+  wished: number[];
+  onPress: (volume: number) => void;
+  onLongPress?: (volume: number) => void;
 };
 
-/** Rejilla de tomos: pulsar marca "lo tengo", mantener pulsado marca "leído". */
-export function VolumeGrid({ total, owned, read, onToggleOwned, onToggleRead }: VolumeGridProps) {
+/** Rejilla de tomos: relleno = lo tengo, ✓ = leído, borde discontinuo y ♡ = lo quiero. */
+export function VolumeGrid({ total, owned, read, wished, onPress, onLongPress }: VolumeGridProps) {
   const theme = useTheme();
 
   return (
@@ -22,27 +23,36 @@ export function VolumeGrid({ total, owned, read, onToggleOwned, onToggleRead }: 
         const volume = index + 1;
         const isOwned = owned.includes(volume);
         const isRead = read.includes(volume);
+        const isWished = wished.includes(volume);
+        const color = isOwned ? theme.onTint : isWished ? theme.tint : theme.text;
+        const states = [isOwned && 'en colección', isRead && 'leído', isWished && 'en deseos'].filter(Boolean);
         return (
           <Pressable
             key={volume}
-            onPress={() => onToggleOwned(volume)}
-            onLongPress={() => onToggleRead(volume)}
+            onPress={() => onPress(volume)}
+            onLongPress={onLongPress && (() => onLongPress(volume))}
             accessibilityRole="button"
-            accessibilityLabel={`Tomo ${volume}${isOwned ? ', en colección' : ''}${isRead ? ', leído' : ''}`}
+            accessibilityLabel={[`Tomo ${volume}`, ...states].join(', ')}
             style={({ pressed }) => [
               styles.cell,
               {
-                backgroundColor: isOwned ? theme.tint : theme.backgroundElement,
-                borderColor: isRead ? theme.text : 'transparent',
+                backgroundColor: isOwned ? theme.tint : theme.background,
+                borderColor: isWished ? theme.tint : isRead ? theme.text : theme.border,
+                borderStyle: isWished ? 'dashed' : 'solid',
                 opacity: pressed ? 0.7 : 1,
               },
             ]}>
-            <ThemedText type="smallBold" style={{ color: isOwned ? theme.onTint : theme.text }}>
+            <ThemedText type="smallBold" style={{ color }}>
               {volume}
             </ThemedText>
             {isRead && (
-              <ThemedText type="code" style={[styles.check, { color: isOwned ? theme.onTint : theme.text }]}>
+              <ThemedText type="code" style={[styles.badge, styles.topRight, { color }]}>
                 ✓
+              </ThemedText>
+            )}
+            {isWished && (
+              <ThemedText type="code" style={[styles.badge, styles.bottomRight, { color }]}>
+                ♡
               </ThemedText>
             )}
           </Pressable>
@@ -66,10 +76,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  check: {
+  badge: {
     position: 'absolute',
-    top: 1,
     right: 4,
     fontSize: 10,
+    lineHeight: 12,
+  },
+  topRight: {
+    top: 1,
+  },
+  bottomRight: {
+    bottom: 1,
   },
 });

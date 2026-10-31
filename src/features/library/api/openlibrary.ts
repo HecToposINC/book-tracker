@@ -132,3 +132,23 @@ export async function lookupIsbn(isbn: string, signal?: AbortSignal): Promise<Ca
     genres: edition.subjects?.slice(0, 5).map((s) => s.name),
   };
 }
+
+export type SeriesDoc = { title: string; publisher?: string[]; language?: string[] };
+
+/** Obras que coinciden con una serie (en Open Library cada tomo suele ser una obra). */
+export async function searchSeriesWorks(query: string, signal?: AbortSignal): Promise<SeriesDoc[]> {
+  const params = new URLSearchParams({ q: query, limit: '100', fields: 'title,publisher,language' });
+  const data = await fetchJson<{ docs: SeriesDoc[] }>(`${BASE_URL}/search.json?${params}`, { signal });
+  return data.docs;
+}
+
+export type WorkEdition = { publishers?: string[]; languages?: { key: string }[] };
+
+/** Ediciones de una obra (`OL123W`): cada una con su editorial e idioma. */
+export async function fetchWorkEditions(workId: string, signal?: AbortSignal): Promise<WorkEdition[]> {
+  const data = await fetchJson<{ entries: WorkEdition[] }>(
+    `${BASE_URL}/works/${workId}/editions.json?limit=100`,
+    { signal }
+  );
+  return data.entries;
+}

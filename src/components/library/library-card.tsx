@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { countVolumes } from '@/features/library/editions';
 import { STATUS_LABELS, type LibraryItem } from '@/features/library/types';
 
 import { Cover } from './cover';
@@ -13,11 +14,11 @@ type LibraryCardProps = {
 };
 
 function progressLabel(item: LibraryItem) {
-  if (item.kind === 'manga') {
-    const total = item.totalVolumes ? `/${item.totalVolumes}` : '';
-    return `${item.ownedVolumes.length}${total} tomos`;
-  }
-  return STATUS_LABELS[item.status];
+  const [edition, ...rest] = item.editions;
+  if (!edition) return STATUS_LABELS[item.status];
+  if (rest.length > 0) return `${countVolumes(item, 'ownedVolumes')} tomos · ${item.editions.length} ediciones`;
+  const total = edition.totalVolumes ? `/${edition.totalVolumes}` : '';
+  return `${edition.ownedVolumes.length}${total} tomos`;
 }
 
 export function LibraryCard({ item, width }: LibraryCardProps) {

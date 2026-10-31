@@ -1,10 +1,17 @@
 import { useSyncExternalStore } from 'react';
 
+import {
+  createEdition,
+  isEditionComplete,
+  isSeries,
+  normalizeItem,
+  type EditionDraft,
+  type VolumeField,
+} from './editions';
 import { readLibrary, writeLibrary } from './storage';
-import type { CatalogEntry, LibraryItem } from './types';
+import type { CatalogEntry, Edition, LibraryItem } from './types';
 
 type AddOptions = Partial<Pick<LibraryItem, 'status' | 'owned' | 'wishlist'>>;
-type VolumeField = 'ownedVolumes' | 'readVolumes';
 
 // Store externo: se lee del almacenamiento la primera vez que se pide.
 let items: LibraryItem[] | null = null;
@@ -12,7 +19,7 @@ const listeners = new Set<() => void>();
 const EMPTY: LibraryItem[] = [];
 
 function getSnapshot() {
-  items ??= readLibrary();
+  items ??= readLibrary().map(normalizeItem);
   return items;
 }
 
@@ -41,16 +48,64 @@ function patchItem(id: string, change: (item: LibraryItem) => LibraryItem) {
 }
 
 /** Ajusta campos derivados (posesión, estado de lectura) tras cambiar los tomos. */
-function syncVolumes(item: LibraryItem): LibraryItem {
+function syncVolumes(item: LibraryItem, field: VolumeField): LibraryItem {
   const next = { ...item };
-  if (next.ownedVolumes.length > 0) {
+  const anyOwned = next.editions.some((edition) => edition.ownedVolumes.length > 0);
+  if (isSeries(next)) {
+    // En series no hay interruptores de obra completa: todo sale de los tomos marcados.
+    next.owned = anyOwned;
+    if (anyOwned || next.editions.some((edition) => edition.wishlistVolumes.length > 0)) {
+      next.wishlist = false;
+    }
+  } else if (anyOwned) {
     next.owned = true;
     next.wishlist = false;
   }
-  const read = next.readVolumes.length;
-  if (next.totalVolumes && read >= next.totalVolumes) next.status = 'read';
-  else if (read > 0 && (next.status === 'pending' || next.status === 'read')) next.status = 'reading';
+  if (field === 'readVolumes') {
+    const anyRead = next.editions.some((edition) => edition.readVolumes.length > 0);
+    if (next.editions.some(isEditionComplete)) next.status = 'read';
+    else if (next.status === 'read' || (anyRead && next.status === 'pending')) next.status = 'reading';
+  }
   return next;
+}
+
+function patchEdition(id: string, editionId: string, change: (edition: Edition) => Edition) {
+  patchItem(id, (item) => ({
+    ...item,
+    editions: item.editions.map((edition) => (edition.id === editionId ? change(edition) : edition)),
+  }));
+}
+
+/** Tener y querer un tomo se excluyen: al marcar uno se quita del otro. */
+const EXCLUSIVE: Partial<Record<VolumeField, VolumeField>> = {
+  ownedVolumes: 'wishlistVolumes',
+  wishlistVolumes: 'ownedVolumes',
+};
+
+function withVolumes(edition: Edition, field: VolumeField, volumes: number[]): Edition {
+  const next = { ...edition, [field]: volumes };
+  const other = EXCLUSIVE[field];
+  if (other) next[other] = next[other].filter((v) => !volumes.includes(v));
+  return next;
+}
+
+function changeVolumes(
+  id: string,
+  editionId: string,
+  field: VolumeField,
+  change: (edition: Edition) => number[]
+) {
+  patchItem(id, (item) =>
+    syncVolumes(
+      {
+        ...item,
+        editions: item.editions.map((edition) =>
+          edition.id === editionId ? withVolumes(edition, field, change(edition)) : edition
+        ),
+      },
+      field
+    )
+  );
 }
 
 const actions = {
@@ -63,8 +118,7 @@ const actions = {
       wishlist: options?.wishlist ?? false,
       rating: 0,
       notes: '',
-      ownedVolumes: [],
-      readVolumes: [],
+      editions: [],
       addedAt: now,
       updatedAt: now,
     };
@@ -75,13 +129,60 @@ const actions = {
   updateItem(id: string, patch: Partial<LibraryItem>) {
     patchItem(id, (item) => ({ ...item, ...patch }));
   },
-  toggleVolume(id: string, volume: number, field: VolumeField) {
-    patchItem(id, (item) => {
-      const volumes = item[field].includes(volume)
-        ? item[field].filter((v) => v !== volume)
-        : [...item[field], volume].sort((a, b) => a - b);
-      return syncVolumes({ ...item, [field]: volumes });
+  addEdition(id: string, draft: EditionDraft) {
+    patchItem(id, (item) => ({ ...item, editions: [...item.editions, createEdition(draft)] }));
+  },
+  /** Cambia los datos de una edición; al reducir los tomos se descartan los que sobran. */
+  updateEdition(id: string, editionId: string, draft: Partial<EditionDraft>) {
+    patchEdition(id, editionId, (edition) => {
+      const next = { ...edition, ...draft };
+      const total = next.totalVolumes;
+      if (!total) return next;
+      return {
+        ...next,
+        ownedVolumes: next.ownedVolumes.filter((v) => v <= total),
+        readVolumes: next.readVolumes.filter((v) => v <= total),
+        wishlistVolumes: next.wishlistVolumes.filter((v) => v <= total),
+      };
     });
+  },
+  removeEdition(id: string, editionId: string) {
+    patchItem(id, (item) =>
+      syncVolumes(
+        { ...item, editions: item.editions.filter((edition) => edition.id !== editionId) },
+        'ownedVolumes'
+      )
+    );
+  },
+  toggleVolume(id: string, editionId: string, volume: number, field: VolumeField) {
+    changeVolumes(id, editionId, field, (edition) =>
+      edition[field].includes(volume)
+        ? edition[field].filter((v) => v !== volume)
+        : [...edition[field], volume].sort((a, b) => a - b)
+    );
+  },
+  /** Marca todos los tomos (en deseos, solo los que no tienes) o ninguno. */
+  setAllVolumes(id: string, editionId: string, field: VolumeField, all: boolean) {
+    changeVolumes(id, editionId, field, (edition) => {
+      if (!all) return [];
+      const volumes = Array.from({ length: edition.totalVolumes ?? 0 }, (_, i) => i + 1);
+      return field === 'wishlistVolumes'
+        ? volumes.filter((v) => !edition.ownedVolumes.includes(v))
+        : volumes;
+    });
+  },
+  /** Ya tienes lo que querías: los tomos deseados pasan a la colección. */
+  acquireWishlist(id: string) {
+    patchItem(id, (item) => ({
+      ...item,
+      owned: true,
+      wishlist: false,
+      editions: item.editions.map((edition) => ({
+        ...edition,
+        ownedVolumes: [...edition.ownedVolumes, ...edition.wishlistVolumes].sort((a, b) => a - b),
+        wishlistVolumes: [],
+      })),
+    }));
   },
   removeItem(id: string) {
     mutate((current) => current.filter((item) => item.id !== id));

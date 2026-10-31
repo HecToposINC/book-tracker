@@ -10,6 +10,7 @@ import { LibraryCard } from '@/components/library/library-card';
 import { ScreenHeader } from '@/components/library/screen-header';
 import { TabScreen } from '@/components/library/tab-screen';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { isOnlyWanted } from '@/features/library/editions';
 import { useLibrary } from '@/features/library/library-store';
 import { STATUS_LABELS, STATUS_ORDER, type MediaKind, type ReadingStatus } from '@/features/library/types';
 import { useTheme } from '@/hooks/use-theme';
@@ -44,7 +45,7 @@ export default function LibraryScreen() {
   const cardWidth = (contentWidth - Spacing.three * (columns - 1)) / columns;
 
   // Lo que solo está en deseos vive en su propia pestaña.
-  const library = items.filter((item) => !(item.wishlist && !item.owned));
+  const library = items.filter((item) => !isOnlyWanted(item));
   const normalizedQuery = query.trim().toLowerCase();
   const visible = library.filter(
     (item) =>

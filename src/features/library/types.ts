@@ -29,6 +29,23 @@ export type CatalogEntry = {
   score?: number;
 };
 
+export type EditionLanguage = 'es' | 'en' | 'ja' | 'fr' | 'it' | 'pt' | 'de' | 'other';
+
+/** Edición concreta de una obra (idioma + editorial + formato), con sus propios tomos. */
+export type Edition = {
+  id: string;
+  language: EditionLanguage;
+  publisher: string;
+  /** Manga, Novela ligera, Libro… */
+  format: string;
+  /** Tomos publicados en esta edición (puede ir por detrás del original). */
+  totalVolumes?: number;
+  ownedVolumes: number[];
+  readVolumes: number[];
+  /** Tomos que quieres conseguir (nunca a la vez que en `ownedVolumes`). */
+  wishlistVolumes: number[];
+};
+
 /** Ficha guardada en la biblioteca del usuario. */
 export type LibraryItem = CatalogEntry & {
   status: ReadingStatus;
@@ -37,8 +54,7 @@ export type LibraryItem = CatalogEntry & {
   /** 0 = sin valorar, 1-5 estrellas. */
   rating: number;
   notes: string;
-  ownedVolumes: number[];
-  readVolumes: number[];
+  editions: Edition[];
   addedAt: number;
   updatedAt: number;
 };

@@ -7,11 +7,27 @@ import { EntryRow } from '@/components/library/entry-row';
 import { ScreenHeader } from '@/components/library/screen-header';
 import { TabScreen } from '@/components/library/tab-screen';
 import { BottomTabInset, Spacing } from '@/constants/theme';
+import { countVolumes, editionLabel, formatVolumeRanges } from '@/features/library/editions';
 import { useLibrary } from '@/features/library/library-store';
+import type { LibraryItem } from '@/features/library/types';
+
+/** "Kamite · Español: tomo 5 · Yen On · Inglés: tomos 6-8" */
+function wantedVolumesLabel(item: LibraryItem) {
+  return item.editions
+    .filter((edition) => edition.wishlistVolumes.length > 0)
+    .map(
+      (edition) =>
+        `${editionLabel(edition)}: ${edition.wishlistVolumes.length === 1 ? 'tomo' : 'tomos'} ${formatVolumeRanges(edition.wishlistVolumes)}`
+    )
+    .join(' · ');
+}
 
 export default function WishlistScreen() {
-  const { items, updateItem } = useLibrary();
-  const wishlist = items.filter((item) => item.wishlist && !item.owned);
+  const { items, acquireWishlist } = useLibrary();
+  // Obras que quieres enteras y obras de las que te falta algún tomo.
+  const wishlist = items.filter(
+    (item) => (item.wishlist && !item.owned) || countVolumes(item, 'wishlistVolumes') > 0
+  );
 
   return (
     <TabScreen>
@@ -31,11 +47,12 @@ export default function WishlistScreen() {
           <EntryRow
             entry={item}
             onPress={() => router.push({ pathname: '/item/[id]', params: { id: item.id } })}
+            badge={wantedVolumesLabel(item) || undefined}
             trailing={
               <ActionButton
                 title="Lo tengo"
                 icon={{ ios: 'checkmark', android: 'check' }}
-                onPress={() => updateItem(item.id, { owned: true, wishlist: false })}
+                onPress={() => acquireWishlist(item.id)}
               />
             }
           />
@@ -43,7 +60,7 @@ export default function WishlistScreen() {
         ListEmptyComponent={
           <EmptyState
             title="Tu lista de deseos está vacía"
-            message="Marca «Lo quiero» en cualquier libro o manga para no olvidarte de comprarlo.">
+            message="Marca «Lo quiero» en cualquier libro o manga, o en tomos sueltos, para no olvidarte de comprarlos.">
             <ActionButton
               title="Buscar títulos"
               icon={{ ios: 'magnifyingglass', android: 'search' }}

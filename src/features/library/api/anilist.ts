@@ -28,9 +28,35 @@ const BY_ID_QUERY = `query ($id: Int) {
   Media(id: $id, type: MANGA) { ${MEDIA_FIELDS} }
 }`;
 
+const FAMILY_QUERY = `query ($id: Int) {
+  Media(id: $id, type: MANGA) {
+    format
+    volumes
+    title { romaji english native }
+    relations { edges { relationType node { type format volumes title { romaji english native } } } }
+  }
+}`;
+
+type AniListTitle = { romaji: string | null; english: string | null; native: string | null };
+
+type FamilyNode = {
+  type?: string | null;
+  format: string | null;
+  volumes: number | null;
+  title: AniListTitle;
+};
+
+/** Una versión de la obra en un formato (el manga, la novela ligera de la que viene…). */
+export type FormatVersion = {
+  format: string;
+  /** Tomos de la edición original japonesa, si se conocen. */
+  volumes?: number;
+  titles: string[];
+};
+
 type AniListMedia = {
   id: number;
-  title: { romaji: string | null; english: string | null; native: string | null };
+  title: AniListTitle;
   format: string | null;
   status: string | null;
   volumes: number | null;
@@ -111,4 +137,30 @@ export async function searchManga(search: string, signal?: AbortSignal): Promise
 export async function fetchManga(id: number, signal?: AbortSignal): Promise<CatalogEntry> {
   const data = await query<{ Media: AniListMedia }>(BY_ID_QUERY, { id }, signal);
   return toEntry(data.Media);
+}
+
+const FAMILY_RELATIONS = new Set(['ADAPTATION', 'SOURCE']);
+const FAMILY_FORMATS = new Set(['MANGA', 'NOVEL']);
+
+function toVersion(node: FamilyNode): FormatVersion | null {
+  if (!node.format || !FAMILY_FORMATS.has(node.format)) return null;
+  const { romaji, english, native } = node.title;
+  return {
+    format: FORMAT_LABELS[node.format] ?? node.format,
+    volumes: node.volumes ?? undefined,
+    titles: [english, romaji, native].filter((title): title is string => Boolean(title)),
+  };
+}
+
+/** La obra y sus adaptaciones en papel (p. ej. manga ↔ novela ligera). */
+export async function fetchFormatVersions(id: number, signal?: AbortSignal): Promise<FormatVersion[]> {
+  const data = await query<{
+    Media: FamilyNode & { relations: { edges: { relationType: string; node: FamilyNode }[] } };
+  }>(FAMILY_QUERY, { id }, signal);
+  const related = data.Media.relations.edges
+    .filter((edge) => FAMILY_RELATIONS.has(edge.relationType) && edge.node.type === 'MANGA')
+    .map((edge) => toVersion(edge.node));
+  const versions = [toVersion(data.Media), ...related].filter((v): v is FormatVersion => v !== null);
+  // Una versión por formato: la propia obra va primero.
+  return versions.filter((v, i) => versions.findIndex((other) => other.format === v.format) === i);
 }

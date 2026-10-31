@@ -5,14 +5,18 @@ import { ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { ActionButton } from '@/components/library/action-button';
 import { ChipGroup } from '@/components/library/chip-group';
 import { confirm } from '@/components/library/confirm';
+import { EditionCard } from '@/components/library/edition-card';
+import { EditionForm } from '@/components/library/edition-form';
+import { EditionSuggestions } from '@/components/library/edition-suggestions';
 import { EmptyState } from '@/components/library/empty-state';
 import { EntryFacts, EntryHeader } from '@/components/library/entry-details';
 import { RatingStars } from '@/components/library/rating-stars';
-import { VolumeGrid } from '@/components/library/volume-grid';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { defaultFormat, isSeries } from '@/features/library/editions';
 import { useLibrary } from '@/features/library/library-store';
+import { useEditionSuggestions } from '@/features/library/use-edition-suggestions';
 import {
   KIND_LABELS,
   STATUS_LABELS,
@@ -27,8 +31,6 @@ const KIND_OPTIONS = (Object.keys(KIND_LABELS) as MediaKind[]).map((kind) => ({
   value: kind,
   label: KIND_LABELS[kind],
 }));
-
-const MAX_VOLUMES = 300;
 
 export default function ItemScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -58,35 +60,14 @@ export default function ItemScreen() {
 
 function ItemDetails({ item }: { item: LibraryItem }) {
   const theme = useTheme();
-  const { updateItem, toggleVolume, removeItem } = useLibrary();
+  const library = useLibrary();
+  const { updateItem, removeItem } = library;
   const [notes, setNotes] = useState(item.notes);
-  const [volumesText, setVolumesText] = useState(item.totalVolumes?.toString() ?? '');
+  const [addingEdition, setAddingEdition] = useState(false);
+  const suggestions = useEditionSuggestions(item);
 
   const update = (patch: Partial<LibraryItem>) => updateItem(item.id, patch);
   const inputStyle = [styles.input, { backgroundColor: theme.backgroundElement, color: theme.text }];
-
-  function saveTotalVolumes() {
-    const total = Number.parseInt(volumesText, 10);
-    if (Number.isNaN(total) || total < 1) {
-      setVolumesText(item.totalVolumes?.toString() ?? '');
-      return;
-    }
-    const capped = Math.min(total, MAX_VOLUMES);
-    setVolumesText(capped.toString());
-    update({
-      totalVolumes: capped,
-      ownedVolumes: item.ownedVolumes.filter((v) => v <= capped),
-      readVolumes: item.readVolumes.filter((v) => v <= capped),
-    });
-  }
-
-  function setAllVolumes(field: 'ownedVolumes' | 'readVolumes', all: boolean) {
-    const volumes = all ? Array.from({ length: item.totalVolumes ?? 0 }, (_, i) => i + 1) : [];
-    const patch: Partial<LibraryItem> = { [field]: volumes };
-    if (field === 'ownedVolumes' && all) Object.assign(patch, { owned: true, wishlist: false });
-    if (field === 'readVolumes') patch.status = all ? 'read' : item.status === 'read' ? 'reading' : item.status;
-    update(patch);
-  }
 
   async function handleDelete() {
     const accepted = await confirm(
@@ -100,87 +81,81 @@ function ItemDetails({ item }: { item: LibraryItem }) {
     }
   }
 
-  const totalVolumes = item.totalVolumes ?? 0;
-
   return (
     <View style={styles.content}>
       <EntryHeader entry={item} />
 
-      <Section title="Mi colección">
-        <ToggleRow
-          label="Lo tengo"
-          value={item.owned}
-          onChange={(owned) => update(owned ? { owned, wishlist: false } : { owned })}
-        />
-        <ToggleRow
-          label="En mi lista de deseos"
-          value={item.wishlist}
-          disabled={item.owned}
-          onChange={(wishlist) => update({ wishlist })}
-        />
-      </Section>
+      {/* En series se marca tomo a tomo en cada edición: estos interruptores sobrarían. */}
+      {!isSeries(item) && (
+        <Section title="Mi colección">
+          <ToggleRow
+            label="Lo tengo"
+            value={item.owned}
+            onChange={(owned) => update(owned ? { owned, wishlist: false } : { owned })}
+          />
+          <ToggleRow
+            label="En mi lista de deseos"
+            value={item.wishlist}
+            disabled={item.owned}
+            onChange={(wishlist) => update({ wishlist })}
+          />
+        </Section>
+      )}
 
       <Section title="Lectura">
         <ChipGroup options={STATUS_OPTIONS} value={item.status} onChange={(status) => update({ status })} scrollable />
         <RatingStars value={item.rating} onChange={(rating) => update({ rating })} />
       </Section>
 
-      {item.kind === 'manga' && (
-        <Section title="Tomos">
-          <View style={styles.volumesHeader}>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
-              Total de tomos publicados
-            </ThemedText>
-            <TextInput
-              value={volumesText}
-              onChangeText={(text) => setVolumesText(text.replace(/\D/g, ''))}
-              onEndEditing={saveTotalVolumes}
-              onBlur={saveTotalVolumes}
-              keyboardType="number-pad"
-              placeholder="?"
-              placeholderTextColor={theme.textSecondary}
-              style={[inputStyle, styles.volumesInput]}
+      {item.editions.length > 0 && (
+        <Section title="Mis ediciones">
+          <ThemedText type="small" themeColor="textSecondary">
+            Elige qué marcar (lo tengo, leído o lo quiero) y pulsa los tomos. Mantén pulsado un tomo
+            para marcarlo como leído directamente.
+          </ThemedText>
+          {item.editions.map((edition) => (
+            <EditionCard
+              key={edition.id}
+              edition={edition}
+              onUpdate={(draft) => library.updateEdition(item.id, edition.id, draft)}
+              onRemove={() => library.removeEdition(item.id, edition.id)}
+              onToggleVolume={(volume, field) => library.toggleVolume(item.id, edition.id, volume, field)}
+              onSetAll={(field, all) => library.setAllVolumes(item.id, edition.id, field, all)}
             />
-          </View>
-
-          {totalVolumes > 0 ? (
-            <>
-              <ThemedText type="code" themeColor="textSecondary">
-                {item.ownedVolumes.length}/{totalVolumes} en colección · {item.readVolumes.length}/
-                {totalVolumes} leídos · Pulsa para marcar que lo tienes, mantén pulsado para marcarlo
-                como leído.
-              </ThemedText>
-              <VolumeGrid
-                total={totalVolumes}
-                owned={item.ownedVolumes}
-                read={item.readVolumes}
-                onToggleOwned={(volume) => toggleVolume(item.id, volume, 'ownedVolumes')}
-                onToggleRead={(volume) => toggleVolume(item.id, volume, 'readVolumes')}
-              />
-              <View style={styles.row}>
-                <View style={styles.flex}>
-                  <ActionButton
-                    title={item.ownedVolumes.length === totalVolumes ? 'Quitar todos' : 'Tengo todos'}
-                    variant="secondary"
-                    onPress={() => setAllVolumes('ownedVolumes', item.ownedVolumes.length !== totalVolumes)}
-                  />
-                </View>
-                <View style={styles.flex}>
-                  <ActionButton
-                    title={item.readVolumes.length === totalVolumes ? 'Ninguno leído' : 'Todos leídos'}
-                    variant="secondary"
-                    onPress={() => setAllVolumes('readVolumes', item.readVolumes.length !== totalVolumes)}
-                  />
-                </View>
-              </View>
-            </>
-          ) : (
-            <ThemedText type="small" themeColor="textSecondary">
-              La serie sigue en publicación o no hay datos: indica cuántos tomos hay para seguirlos.
-            </ThemedText>
-          )}
+          ))}
         </Section>
       )}
+
+      <Section title="Ediciones encontradas">
+        <EditionSuggestions
+          suggestions={suggestions}
+          editions={item.editions}
+          onAdd={(draft) => library.addEdition(item.id, draft)}
+        />
+        {addingEdition ? (
+          <EditionForm
+            initial={{
+              language: 'es',
+              publisher: '',
+              format: defaultFormat(item),
+              totalVolumes: item.totalVolumes ?? (item.kind === 'book' ? 1 : undefined),
+            }}
+            submitLabel="Añadir edición"
+            onCancel={() => setAddingEdition(false)}
+            onSubmit={(draft) => {
+              library.addEdition(item.id, draft);
+              setAddingEdition(false);
+            }}
+          />
+        ) : (
+          <ActionButton
+            title="¿No está la tuya? Añadir a mano"
+            variant="secondary"
+            icon={{ ios: 'plus', android: 'add' }}
+            onPress={() => setAddingEdition(true)}
+          />
+        )}
+      </Section>
 
       <Section title="Notas">
         <TextInput
@@ -274,27 +249,11 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.5,
   },
-  row: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  flex: {
-    flex: 1,
-  },
-  volumesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
   input: {
     borderRadius: Spacing.two,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     fontSize: 16,
-  },
-  volumesInput: {
-    width: 72,
-    textAlign: 'center',
   },
   notes: {
     minHeight: 96,
