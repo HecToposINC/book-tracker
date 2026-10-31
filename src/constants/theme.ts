@@ -14,6 +14,10 @@ export const Colors = {
     backgroundElement: '#F0F0F3',
     backgroundSelected: '#E0E1E6',
     textSecondary: '#60646C',
+    tint: '#E8590C',
+    onTint: '#ffffff',
+    border: '#D9D9E0',
+    danger: '#E03131',
   },
   dark: {
     text: '#ffffff',
@@ -21,7 +25,17 @@ export const Colors = {
     backgroundElement: '#212225',
     backgroundSelected: '#2E3135',
     textSecondary: '#B0B4BA',
+    tint: '#FF922B',
+    onTint: '#1A1A19',
+    border: '#3A3D42',
+    danger: '#FF6B6B',
   },
+} as const;
+
+/** Colores categóricos para gráficos (validados para daltonismo en claro y oscuro). */
+export const ChartColors = {
+  light: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100'],
+  dark: ['#3987e5', '#d95926', '#199e70', '#c98500'],
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
