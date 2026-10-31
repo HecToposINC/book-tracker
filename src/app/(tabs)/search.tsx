@@ -18,7 +18,7 @@ import {
 } from '@/features/library/api/catalog';
 import { isAbortError } from '@/features/library/api/http';
 import { normalizeIsbn } from '@/features/library/isbn';
-import { useLibrary } from '@/features/library/library-context';
+import { useLibrary } from '@/features/library/library-store';
 import type { CatalogEntry } from '@/features/library/types';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -41,14 +41,13 @@ export default function SearchScreen() {
   const { getItem } = useLibrary();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<SearchFilter>('all');
-  const [state, setState] = useState<SearchState>({ phase: 'idle' });
+  const [searchState, setState] = useState<SearchState>({ phase: 'idle' });
+  const trimmed = query.trim();
+  // Con menos de 2 caracteres no se busca: el estado guardado se ignora.
+  const state: SearchState = trimmed.length < 2 ? { phase: 'idle' } : searchState;
 
   useEffect(() => {
-    const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setState({ phase: 'idle' });
-      return;
-    }
+    if (trimmed.length < 2) return;
 
     const controller = new AbortController();
     const timeout = setTimeout(async () => {
@@ -75,7 +74,7 @@ export default function SearchScreen() {
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [query, filter]);
+  }, [trimmed, filter]);
 
   const sections =
     state.phase === 'done'
